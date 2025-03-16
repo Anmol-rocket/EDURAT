@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Race Math Adventure</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/spacetheme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    <div class="container">
+        <!-- Intro Screen -->
+        <div class="intro-screen" id="introScreen">
+            <h1 class="intro-title">Space Race Math Adventure!</h1>
+            
+            <div class="intro-content">
+                <p class="intro-text">Welcome young space explorer! Today we're going to learn a special math secret:</p>
+                <p class="intro-text">When we divide any number by 1, the number stays the same!</p>
+                
+                <div class="math-example">
+                    <div class="rocket-example">
+                        <i class="fas fa-rocket rocket-icon"></i>
+                        <div class="equation">5 ÷ 1 = 5</div>
+                    </div>
+                    
+                    <div class="rocket-example">
+                        <i class="fas fa-rocket rocket-icon"></i>
+                        <div class="equation">8 ÷ 1 = 8</div>
+                    </div>
+                    
+                    <div class="rocket-example">
+                        <i class="fas fa-rocket rocket-icon"></i>
+                        <div class="equation">10 ÷ 1 = 10</div>
+                    </div>
+                </div>
+                
+                <p class="intro-text">In this space race, you'll use this power to speed through the galaxy!</p>
+                <p class="intro-text">Just remember: Any number divided by 1 equals that same number.</p>
+            </div>
+            
+            <button class="start-button" id="startButton" >
+                BLAST OFF!
+            </button>
+        </div>
+        
+        <!-- Game Screen -->
+        <div class="game-wrapper" id="gameWrapper">
+            <iframe src="https://www.mindlygames.com/games/space-race/index.html?questionnaireKey=-NOyx5-cRB93fk6-aYQ1"
+                    title="Space Race Game"
+                    allowfullscreen
+                    id="gameFrame">
+            </iframe>
+            <div class="fullscreen-btn" id="fullscreenBtn">
+                <div class="fullscreen-icon">
+                    <i class="fas fa-expand"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+  <script src="spacetheme.js">
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if there's pending game data to send
+        const pendingGameData = localStorage.getItem('pendingGameData');
+        const gameSendTime = localStorage.getItem('gameSendTime');
+        
+        if (pendingGameData && gameSendTime) {
+            const gameData = JSON.parse(pendingGameData);
+            const sendTime = new Date(gameSendTime);
+            const now = new Date();
+            
+            // Calculate time remaining until we should send data
+            const timeRemaining = Math.max(0, sendTime.getTime() - now.getTime());
+            
+            console.log(`Game data will be sent in ${timeRemaining}ms for ${gameData.username}`);
+            
+            // Set timeout to send data after the remaining time
+            setTimeout(() => {
+                // Update the game data with actual completion
+                gameData.completed = true;
+                gameData.actualPlayDuration = Math.floor((new Date() - new Date(gameData.timeStarted)) / 1000);
+                
+                // Send data to server
+                sendGameData(gameData);
+                
+                // Clear the pending data
+                localStorage.removeItem('pendingGameData');
+                localStorage.removeItem('gameSendTime');
+                
+                // Show notification that coins were earned
+                showEarnedCoinsNotification(gameData.coinsEarned, gameData.username);
+            }, timeRemaining);
+        }
+        
+        // Function to send data to the API
+        function sendGameData(gameData) {
+            fetch('https://api.edura.example/game-activity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(gameData),
+                keepalive: true // This allows the request to complete even if page is changed
+            })
+            .then(response => {
+                if (response.ok) {
+                    console.log('Game data sent successfully for user:', gameData.username);
+                    // Update user coins in localStorage for persistence across pages
+                    updateUserCoins(gameData.coinsEarned);
+                    return response.json();
+                } else {
+                    console.error('Failed to send game data');
+                    throw new Error('Server responded with error');
+                }
+            })
+            .then(data => {
+                console.log('Server response:', data);
+                // You could update UI based on server response if needed
+            })
+            .catch(error => {
+                console.error('Error sending game data:', error);
+                
+                // If there's an error, store the data to try again later
+                const failedRequests = JSON.parse(localStorage.getItem('failedGameRequests') || '[]');
+                failedRequests.push(gameData);
+                localStorage.setItem('failedGameRequests', JSON.stringify(failedRequests));
+            });
+        }
+        
+        // Function to update user coins
+        function updateUserCoins(coinsEarned) {
+            const currentCoins = parseInt(localStorage.getItem('userCoins') || '0');
+            const newCoins = currentCoins + coinsEarned;
+            localStorage.setItem('userCoins', newCoins.toString());
+            
+            // If there's a coins display element on the page, update it
+            const coinsDisplay = document.querySelector('.coins-display');
+            if (coinsDisplay) {
+                coinsDisplay.textContent = newCoins;
+            }
+        }
+        
+        // Function to show notification that coins were earned
+        function showEarnedCoinsNotification(coins, username) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.position = 'fixed';
+            notification.style.bottom = '20px';
+            notification.style.right = '20px';
+            notification.style.backgroundColor = '#ff6b00';
+            notification.style.color = 'white';
+            notification.style.padding = '15px 20px';
+            notification.style.borderRadius = '10px';
+            notification.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            notification.style.zIndex = '9999';
+            notification.style.transition = 'all 0.3s ease';
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateY(20px)';
+            notification.innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="font-size:24px;">🎮</div>
+                    <div>
+                        <div style="font-weight:bold;margin-bottom:5px;">Congratulations, ${username}!</div>
+                        <div>You earned <span style="font-weight:bold;font-size:1.1em;">${coins} coins</span></div>
+                    </div>
+                </div>
+            `;
+            
+            // Add to document
+            document.body.appendChild(notification);
+            
+            // Trigger animation
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateY(0)';
+            }, 100);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 5000);
+        }
+        
+        // Retry sending failed requests
+        function retryFailedRequests() {
+            const failedRequests = JSON.parse(localStorage.getItem('failedGameRequests') || '[]');
+            if (failedRequests.length > 0) {
+                console.log(`Attempting to resend ${failedRequests.length} failed requests`);
+                
+                const newFailedRequests = [];
+                failedRequests.forEach(request => {
+                    fetch('https://api.edura.example/game-activity', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(request),
+                        keepalive: true
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            newFailedRequests.push(request);
+                        }
+                    })
+                    .catch(() => {
+                        newFailedRequests.push(request);
+                    });
+                });
+                
+                // Update the failed requests in localStorage
+                localStorage.setItem('failedGameRequests', JSON.stringify(newFailedRequests));
+            }
+        }
+        
+        // Try to resend failed requests when page loads
+        retryFailedRequests();
+    });
+  </script>  
+</body>
+</html>
